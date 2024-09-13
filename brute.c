@@ -1,16 +1,70 @@
+#include <openssl/conf.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-int wordlength(char *str)
+unsigned char *plain = (unsigned char *)"This is a top secret.";
+unsigned char *cipher = (unsigned char *)"764aa26b55a4da654df6b19e4bce00f4ed05e09346fb0e762583cb7da2ac93a2";
+const unsigned char *iv = "aabbccddeeff00998877665544332211";
+
+void wordlength(char *str)
 {
-    int len = 0;
-    while (str != '\0')
+    int len = strlen(str);
+    if (len == 16)
     {
-        len++;
-        str++;
+        return;
     }
-    return len;
+    while (len < 16)
+    {
+        str[len] = '#';
+        len++;
+    }
+}
+
+int do_crypt(unsigned char *input, int input_len, unsigned char *key, unsigned char *output, int do_encrypt)
+{
+    unsigned char outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    int outlen, tmplen;
+    EVP_CIPHER_CTX *ctx;
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+    {
+        return 0;
+    }
+
+    if (!EVP_CipherInit_ex(ctx, EVP_aes_128_cbc(), NULL, NULL, NULL, do_encrypt))
+    {
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+
+    OPENSSL_assert(EVP_CIPHER_CTX_key_length(ctx) == 16);
+    OPENSSL_assert(EVP_CIPHER_CTX_iv_length(ctx) == 16);
+
+    if (!EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, do_encrypt))
+    {
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+
+    if (!EVP_CipherUpdate(ctx, outbuf, &outlen, input, input_len))
+    {
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+
+    if (!EVP_CipherFinal_ex(ctx, outbuf + outlen, &tmplen))
+    {
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    outlen += tmplen;
+    memcpy(output, outbuf, outlen);
+    EVP_CIPHER_CTX_free(ctx);
+    return outlen;
 }
 
 int main()
@@ -19,9 +73,27 @@ int main()
     if ((wordlist = fopen("", "r")) == NULL)
     {
         printf("Error opening file");
+        return 1;
     }
+
     char word[16];
-    while (fgets(word, 16, wordlist) != NULL)
+    char out_cipher[1024];
+
+    while (fgets(word, sizeof(word), wordlist) != NULL)
     {
+        char *newline = strchr(word, '\n');
+        if (newline)
+        {
+            *newline = '\0';
+        }
+        wordlength(word);
+        int outlen = do_crypt(plain, strlen((char *)plain), (unsigned char *)word, out_cipher, 1);
+        if(strcmp(cipher, ) == 0){
+            printf("Key Found %s\n", word);
+            break;
+        }
     }
+
+    fclose(wordlist);
+    return 0;
 }
