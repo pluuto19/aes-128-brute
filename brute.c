@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 unsigned char *plain = (unsigned char *)"This is a top secret.";
-unsigned char *cipher = (unsigned char *)"764aa26b55a4da654df6b19e4bce00f4ed05e09346fb0e762583cb7da2ac93a2";
+char *cipher = "764aa26b55a4da654df6b19e4bce00f4ed05e09346fb0e762583cb7da2ac93a2";
 const unsigned char *iv = "aabbccddeeff00998877665544332211";
 
 void wordlength(char *str)
@@ -67,17 +67,27 @@ int do_crypt(unsigned char *input, int input_len, unsigned char *key, unsigned c
     return outlen;
 }
 
+void bin_to_hex(const unsigned char *bin, int len, char *hex)
+{
+    for (int i = 0; i < len; i++)
+    {
+        sprintf(hex + (i * 2), "%02x", bin[i]);
+    }
+    hex[len * 2] = '\0';
+}
+
 int main()
 {
     FILE *wordlist;
-    if ((wordlist = fopen("", "r")) == NULL)
+    if ((wordlist = fopen("/home/seed/Desktop/Labsetup/words.txt", "r")) == NULL)
     {
         printf("Error opening file");
         return 1;
     }
 
     char word[16];
-    char out_cipher[1024];
+    unsigned char out_cipher[1024];
+    char out_cipher_hex[1024 * 2 + 1];
 
     while (fgets(word, sizeof(word), wordlist) != NULL)
     {
@@ -88,7 +98,8 @@ int main()
         }
         wordlength(word);
         int outlen = do_crypt(plain, strlen((char *)plain), (unsigned char *)word, out_cipher, 1);
-        if(strcmp(cipher, ) == 0){
+        bin_to_hex(out_cipher, outlen, out_cipher_hex);
+        if(strcmp(cipher, out_cipher_hex) == 0){
             printf("Key Found %s\n", word);
             break;
         }
