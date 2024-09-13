@@ -17,7 +17,7 @@ void wordlength(char *str)
         str[len] = '#';
         len++;
     }
-    str[16] = '\0'; 
+    str[16] = '\0';
 }
 
 int do_crypt(unsigned char *input, int input_len, unsigned char *key, unsigned char *iv, unsigned char *output)
