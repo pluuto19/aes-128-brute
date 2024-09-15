@@ -1,56 +1,41 @@
-import socket
-import binascii
+def xor_bytes(a, b):
+    return bytes([x ^ y for x, y in zip(a, b)])
 
 def hex_to_bytes(hex_str):
-    return binascii.unhexlify(hex_str)
+    return bytes.fromhex(hex_str)
 
 def bytes_to_hex(byte_str):
-    return binascii.hexlify(byte_str).decode('utf-8')
+    return byte_str.hex()
 
-def interact_with_oracle(host, port, my_plaintext):
-    # Create a TCP connection to the oracle
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((host, port))
-        
-        # Read initial response from the oracle
-        response = s.recv(4096).decode('utf-8')
-        print(response)  # To see Bob's ciphertext and the IVs
-        
-        # Send our crafted plaintext
-        s.sendall(f"{my_plaintext}\n".encode('utf-8'))
-        
-        # Receive the ciphertext response
-        response = s.recv(4096).decode('utf-8')
-        print(response)
-        
-        return response
+def oracle_encrypt(plaintext_hex):
+    return input(f"Simulated ciphertext for plaintext {plaintext_hex}: ")
 
-def main():
-    # Oracle connection details
-    host = '10.9.0.80'
-    port = 3000
-    
-    # Initial crafted plaintext
-    my_plaintext = "11223344aabbccdd"  # This is just an example, adjust based on the attack strategy
-    
-    # Interact with the oracle
-    response = interact_with_oracle(host, port, my_plaintext)
+def crack_ciphertext(bob_ciphertext, bob_iv, next_iv):
+    bob_ciphertext_bytes = hex_to_bytes(bob_ciphertext)
+    bob_iv_bytes = hex_to_bytes(bob_iv)
+    next_iv_bytes = hex_to_bytes(next_iv)
 
-    # Parse Bob's ciphertext and IVs from the response
-    # Assuming the response format is known, extract the relevant values
-    # Modify parsing logic as per actual response format
-    lines = response.splitlines()
-    bob_ciphertext = lines[0].split(": ")[1]
-    bob_iv = lines[1].split(": ")[1]
-    next_iv = lines[2].split(": ")[1]
+    plaintext_yes = "Yes".encode().ljust(16, b'\x00')
+    plaintext_no = "No".encode().ljust(16, b'\x00')
 
-    # Print out the captured values for debugging
-    print(f"Bob's ciphertext: {bob_ciphertext}")
-    print(f"Bob's IV: {bob_iv}")
-    print(f"Next IV: {next_iv}")
+    crafted_plaintext_yes = xor_bytes(plaintext_yes, xor_bytes(bob_iv_bytes, next_iv_bytes))
+    crafted_plaintext_no = xor_bytes(plaintext_no, xor_bytes(bob_iv_bytes, next_iv_bytes))
 
-    # Continue this loop with crafted plaintexts as necessary to deduce Bob's secret message
-    # Implement a loop to try different plaintexts if needed
+    crafted_plaintext_yes_hex = bytes_to_hex(crafted_plaintext_yes)
+    crafted_plaintext_no_hex = bytes_to_hex(crafted_plaintext_no)
 
-if __name__ == '__main__':
-    main()
+    ciphertext_for_yes = oracle_encrypt(crafted_plaintext_yes_hex)
+    ciphertext_for_no = oracle_encrypt(crafted_plaintext_no_hex)
+
+    if bob_ciphertext == ciphertext_for_yes:
+        print("Bob's secret message is: Yes")
+    elif bob_ciphertext == ciphertext_for_no:
+        print("Bob's secret message is: No")
+    else:
+        print("Unable to determine Bob's message.")
+
+bob_ciphertext = "54601f27c6605da997865f62765117ce"
+bob_iv = "d27d724f59a84d9b61c0f2883efa7bbc"
+next_iv = "d34c739f59a84d9b61c0f2883efa7bbc"
+
+crack_ciphertext(bob_ciphertext, bob_iv, next_iv)
