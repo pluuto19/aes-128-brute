@@ -1,20 +1,56 @@
-def xor_hex_strings(hex_str1, hex_str2):
-    return '{:x}'.format(int(hex_str1, 16) ^ int(hex_str2, 16)).zfill(len(hex_str1))
+import socket
+import binascii
 
-# Bob's ciphertext and IV
-bob_ciphertext = "54601f27c6605da997865f62765117ce"
-bob_iv = "d27d724f59a84d9b61c0f2883efa7bbc"
+def hex_to_bytes(hex_str):
+    return binascii.unhexlify(hex_str)
 
-# Get the next IV from user input
-next_iv = input("Enter the next IV: ").strip()
+def bytes_to_hex(byte_str):
+    return binascii.hexlify(byte_str).decode('utf-8')
 
-# Prepare payloads for "Yes" and "No"
-yes_payload = xor_hex_strings("596573", next_iv[:6])  # "Yes" in hex
-no_payload = xor_hex_strings("4e6f", next_iv[:4])     # "No" in hex
+def interact_with_oracle(host, port, my_plaintext):
+    # Create a TCP connection to the oracle
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((host, port))
+        
+        # Read initial response from the oracle
+        response = s.recv(4096).decode('utf-8')
+        print(response)  # To see Bob's ciphertext and the IVs
+        
+        # Send our crafted plaintext
+        s.sendall(f"{my_plaintext}\n".encode('utf-8'))
+        
+        # Receive the ciphertext response
+        response = s.recv(4096).decode('utf-8')
+        print(response)
+        
+        return response
 
-print(f"To check if the message is 'Yes', send this plaintext: {yes_payload}")
-print(f"To check if the message is 'No', send this plaintext: {no_payload}")
+def main():
+    # Oracle connection details
+    host = '10.9.0.80'
+    port = 3000
+    
+    # Initial crafted plaintext
+    my_plaintext = "11223344aabbccdd"  # This is just an example, adjust based on the attack strategy
+    
+    # Interact with the oracle
+    response = interact_with_oracle(host, port, my_plaintext)
 
-print("\nAfter sending each plaintext, compare the first 16 bytes (32 hex characters) of the resulting ciphertext with Bob's ciphertext:")
-print(f"Bob's ciphertext (first 16 bytes): {bob_ciphertext[:32]}")
-print("If either matches, you've determined Bob's message.")
+    # Parse Bob's ciphertext and IVs from the response
+    # Assuming the response format is known, extract the relevant values
+    # Modify parsing logic as per actual response format
+    lines = response.splitlines()
+    bob_ciphertext = lines[0].split(": ")[1]
+    bob_iv = lines[1].split(": ")[1]
+    next_iv = lines[2].split(": ")[1]
+
+    # Print out the captured values for debugging
+    print(f"Bob's ciphertext: {bob_ciphertext}")
+    print(f"Bob's IV: {bob_iv}")
+    print(f"Next IV: {next_iv}")
+
+    # Continue this loop with crafted plaintexts as necessary to deduce Bob's secret message
+    # Implement a loop to try different plaintexts if needed
+
+if __name__ == '__main__':
+    main()
